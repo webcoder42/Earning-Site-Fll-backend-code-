@@ -26,7 +26,7 @@ const generateUniqueSlug = async (username) => {
   return slug;
 };
 const generateReferralLink = (referralCode) => {
-  const baseUrl = "http://localhost:3000"; // Replace with your actual base URL
+  const baseUrl = "https://earning-site-fll-backend-code.onrender.com"; // Replace with your actual base URL
   return `${baseUrl}/login?referralCode=${referralCode}`;
 };
 
@@ -196,7 +196,7 @@ const sendResetEmail = async (email, token) => {
     to: email,
     subject: "Password Reset",
     text: `To reset your password, please click the link below:
-    http://localhost:3000/request-password-reset/${token}`, // Corrected the link
+    https://earning-site-fll-backend-code.onrender.com/${token}`, // Corrected the link
   };
 
   await transporter.sendMail(mailOptions);
