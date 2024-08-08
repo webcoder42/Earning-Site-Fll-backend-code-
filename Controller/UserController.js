@@ -26,7 +26,8 @@ const generateUniqueSlug = async (username) => {
   return slug;
 };
 const generateReferralLink = (referralCode) => {
-  const baseUrl = "https://earning-site-fll-backend-code.onrender.com"; // Replace with your actual base URL
+  const baseUrl =
+    "https://66b49dbf676f5ce0c69ce628--aesthetic-melba-0fd5ab.netlify.app/"; // Replace with your actual base URL
   return `${baseUrl}/login?referralCode=${referralCode}`;
 };
 
@@ -196,7 +197,7 @@ const sendResetEmail = async (email, token) => {
     to: email,
     subject: "Password Reset",
     text: `To reset your password, please click the link below:
-    https://earning-site-fll-backend-code.onrender.com/${token}`, // Corrected the link
+   https://66b49dbf676f5ce0c69ce628--aesthetic-melba-0fd5ab.netlify.app//${token}`, // Corrected the link
   };
 
   await transporter.sendMail(mailOptions);
