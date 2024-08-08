@@ -27,7 +27,7 @@ const generateUniqueSlug = async (username) => {
 };
 const generateReferralLink = (referralCode) => {
   const baseUrl =
-    "https://66b49dbf676f5ce0c69ce628--aesthetic-melba-0fd5ab.netlify.app/"; // Replace with your actual base URL
+    "https://66b49dbf676f5ce0c69ce628--aesthetic-melba-0fd5ab.netlify.app"; // Replace with your actual base URL
   return `${baseUrl}/login?referralCode=${referralCode}`;
 };
 
