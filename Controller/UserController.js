@@ -27,7 +27,7 @@ const generateUniqueSlug = async (username) => {
 };
 const generateReferralLink = (referralCode) => {
   const baseUrl =
-    "https://aesthetic-melba-0fd5ab.netlify.app"; // Replace with your actual base URL
+    "https://deluxe-daffodil-bca2f0.netlify.app"; // Replace with your actual base URL
   return `${baseUrl}/login?referralCode=${referralCode}`;
 };
 
@@ -197,7 +197,7 @@ const sendResetEmail = async (email, token) => {
     to: email,
     subject: "Password Reset",
     text: `To reset your password, please click the link below:
-   https://aesthetic-melba-0fd5ab.netlify.app/${token}`, // Corrected the link
+  https://deluxe-daffodil-bca2f0.netlify.app/${token}`, // Corrected the link
   };
 
   await transporter.sendMail(mailOptions);
