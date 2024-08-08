@@ -27,7 +27,7 @@ const generateUniqueSlug = async (username) => {
 };
 const generateReferralLink = (referralCode) => {
  
-  const baseUrl = "https://deluxe-daffodil-bca2f0.netlify.app"; // Replace with your actual base URL
+  const baseUrl = "y-ads.netlify.app"; // Replace with your actual base URL
   return `${baseUrl}/login?referralCode=${referralCode}`;
 };
 
@@ -197,7 +197,7 @@ const sendResetEmail = async (email, token) => {
     to: email,
     subject: "Password Reset",
     text: `To reset your password, please click the link below:
- https://deluxe-daffodil-bca2f0.netlify.app/request-password-reset/${token}`, 
+ https://y-ads.netlify.app/request-password-reset/${token}`, 
   };
 
   await transporter.sendMail(mailOptions);
