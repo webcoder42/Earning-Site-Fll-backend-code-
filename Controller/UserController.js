@@ -1,530 +1,336 @@
-import { ComparePassword, HashPassword } from "../Helper/UserHelper.js";
-import UserModel from "../models/UserModel.js";
-import JWT from "jsonwebtoken";
-import crypto from "crypto";
-import nodemailer from "nodemailer";
-import slugify from "slugify";
-import PackagePurchaseModel from "../models/PackagePurchaseModel.js";
+import React, { useState, useEffect, useRef } from "react";
+import Layout from "../../Componet/Layout/Layout";
+import axios from "axios";
+import moment from "moment";
+import "../../Styles/Ads.css";
+import { useAuth } from "../../Context/auth";
+import logo from "../../Assets/sitelogo.png";
 
-// Function to generate a unique referral code
-const generateReferralCode = () => {
-  return crypto.randomBytes(4).toString("hex").toUpperCase();
-};
+const Ads = () => {
+  const [auth] = useAuth();
 
-// Function to generate a unique slug
-const generateUniqueSlug = async (username) => {
-  let slug = slugify(username, { lower: true });
-  let user = await UserModel.findOne({ slug });
-  let counter = 1;
+  const [ads, setAds] = useState([]);
+  const [currentAdIndex, setCurrentAdIndex] = useState(0);
+  const [remainingTime, setRemainingTime] = useState(0); // For ad's duration
+  const [submitTimer, setSubmitTimer] = useState(0); // For submit button visibility
+  const [showTimer, setShowTimer] = useState(false);
+  const [message, setMessage] = useState("");
+  const [totalEarnings, setTotalEarnings] = useState(0);
+  const [totalAdsViewed, setTotalAdsViewed] = useState(0);
+  const [remainingAds, setRemainingAds] = useState(0);
+  const [nextAvailableTime, setNextAvailableTime] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [earnings, setEarnings] = useState(null);
+  const videoRef = useRef(null);
 
-  while (user) {
-    slug = `${slugify(username, { lower: true })}-${counter}`;
-    user = await UserModel.findOne({ slug });
-    counter++;
-  }
+  useEffect(() => {
+    const fetchAds = async () => {
+      try {
+        const response = await axios.get(
+          "https://earning-site-fll-backend-code.onrender.com/api/v1/ads/user-ads"
+        );
+        setAds(response.data.ads);
 
-  return slug;
-};
-const generateReferralLink = (referralCode) => {
-  const baseUrl =
-    "https://deluxe-daffodil-bca2f0.netlify.app"; // Replace with your actual base URL
-  return `${baseUrl}/login?referralCode=${referralCode}`;
-};
-
-// Registration Controller
-export const registerController = async (req, res) => {
-  try {
-    const { username, email, password, referralCode } = req.body;
-
-    // Validation
-    if (!username) {
-      return res.status(400).send({ message: "Name is required" });
-    }
-    if (!email) {
-      return res.status(400).send({ message: "Email is required" });
-    }
-    if (!password) {
-      return res.status(400).send({ message: "Password is required" });
-    }
-
-    // Check if user already exists
-    const existingUser = await UserModel.findOne({
-      $or: [{ username }, { email }],
-    });
-    if (existingUser) {
-      return res.status(401).send({
-        success: false,
-        message: "Username or email already registered. Please login.",
-      });
-    }
-
-    // Hash password
-    const hashedPassword = await HashPassword(password);
-
-    // Generate referral code
-    const newReferralCode = crypto.randomBytes(4).toString("hex");
-
-    // Generate referral link
-    const referralLink = generateReferralLink(newReferralCode);
-
-    // Generate unique slug
-    const slug = await generateUniqueSlug(username);
-
-    // Register new user
-    const userRegister = new UserModel({
-      username,
-      slug,
-      email,
-      password: hashedPassword,
-      referralCode: newReferralCode,
-      referralLink,
-      accountStatus: "active",
-    });
-
-    // If referralCode is provided, update the referring user's data
-    if (referralCode) {
-      const referringUser = await UserModel.findOne({ referralCode });
-      if (referringUser) {
-        referringUser.totelreffered += 1; // Increment total referred
-        await referringUser.save();
-
-        // Store the referral in the new user's data
-        userRegister.referredBy = referralCode;
+        if (response.data.ads.length > 0) {
+          const adDuration = response.data.ads[0].duration;
+          setRemainingTime(adDuration);
+          setSubmitTimer(adDuration); // Initialize submit timer
+          setShowTimer(true);
+        }
+      } catch (error) {
+        console.error("Error fetching ads:", error);
+        setMessage("Error fetching ads. Please First buy package .");
       }
+    };
+
+    fetchAds();
+  }, []);
+
+  useEffect(() => {
+    const fetchUserStats = async () => {
+      try {
+        const earningsResponse = await axios.get(
+          "https://earning-site-fll-backend-code.onrender.com/api/v1/ads/user-ads-earnings"
+        );
+        setTotalEarnings(earningsResponse.data.totalEarnings);
+
+        const statsResponse = await axios.get(
+          "https://earning-site-fll-backend-code.onrender.com/api/v1/ads/user-total-ads-viewed"
+        );
+        const { totalAdsViewed, remainingAdsToday } = statsResponse.data;
+        setTotalAdsViewed(totalAdsViewed);
+        setRemainingAds(remainingAdsToday);
+
+        // Calculate next available time
+        const now = moment();
+        const nextAdTime = now.add(24, "hours").startOf("day").toDate();
+        setNextAvailableTime(nextAdTime);
+
+        if (remainingAdsToday <= 0) {
+          setMessage(
+            "You have viewed all ads for today. Please come back tomorrow."
+          );
+          setShowTimer(false);
+        }
+      } catch (error) {
+        console.error("Error fetching user stats:", error);
+      }
+    };
+
+    fetchUserStats();
+  }, []);
+
+  useEffect(() => {
+    const fetchUserEarnings = async () => {
+      try {
+        const response = await axios.get(
+          "https://earning-site-fll-backend-code.onrender.com/api/v1/users/earnings"
+        );
+        setEarnings(response.data);
+      } catch (err) {
+        setError("Failed to fetch earnings.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserEarnings();
+  }, []);
+
+  useEffect(() => {
+    if (showTimer && remainingTime > 0) {
+      const timer = setInterval(() => {
+        setRemainingTime((prevTime) => prevTime - 1);
+      }, 1000);
+
+      return () => clearInterval(timer);
     }
+  }, [showTimer, remainingTime]);
 
-    await userRegister.save();
-    const totalUsers = await UserModel.countDocuments();
-    res.status(201).send({
-      success: true,
-      total: totalUsers,
-      message: "User registered successfully",
-      user: userRegister,
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(400).send({
-      success: false,
-      message: "Error in registration",
-      error,
-    });
-  }
-};
+  useEffect(() => {
+    if (submitTimer > 0) {
+      const timer = setInterval(() => {
+        setSubmitTimer((prevTime) => prevTime - 1);
+      }, 1000);
 
-//Login Controller
-export const loginController = async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-
-    // Validation
-    if (!username && !email) {
-      return res.status(400).send({
-        success: false,
-        message: "Username or email is required",
-      });
+      return () => clearInterval(timer);
     }
-    if (!password) {
-      return res.status(400).send({
-        success: false,
-        message: "Password is required",
-      });
-    }
+  }, [submitTimer]);
 
-    // Find user by username or email
-    const user = await UserModel.findOne({ $or: [{ username }, { email }] });
-    if (!user) {
-      return res.status(404).send({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    // Check password
-    const match = await ComparePassword(password, user.password);
-    if (!match) {
-      return res.status(401).send({
-        success: false,
-        message: "Invalid password",
-      });
-    }
-
-    // Create token
-    const token = JWT.sign({ _id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
-
-    res.status(200).send({
-      success: true,
-      message: "Login Successfully",
-      user: {
-        username: user.username,
-        email: user.email,
-        role: user.role,
-      },
-      token,
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(500).send({
-      success: false,
-      message: "Error in Login",
-      error,
-    });
-  }
-};
-
-//test Controlleer
-export const testController = async (req, res) => {
-  try {
-    res.send("Protected route");
-  } catch (error) {
-    console.log(error);
-    res.send({ error });
-  }
-};
-
-const sendResetEmail = async (email, token) => {
-  const transporter = nodemailer.createTransport({
-    service: "Gmail", // Example, use your email service
-    auth: {
-      user: process.env.EMAIL, // Your email
-      pass: process.env.EMAIL_PASSWORD, // Your email password
-    },
-  });
-
-  const mailOptions = {
-    from: process.env.EMAIL,
-    to: email,
-    subject: "Password Reset",
-    text: `To reset your password, please click the link below:
-  https://deluxe-daffodil-bca2f0.netlify.app/${token}`, // Corrected the link
+  const handleVideoPlay = () => {
+    setShowTimer(true);
   };
 
-  await transporter.sendMail(mailOptions);
-};
+  const handleVideoPause = () => {
+    setShowTimer(false);
+  };
 
-// Request Password Reset Controller
-export const requestPasswordResetController = async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).send({ message: "Email is required" });
-    }
+  const handleSubmit = async () => {
+    const currentAd = ads[currentAdIndex];
 
-    const user = await UserModel.findOne({ email });
-    if (!user) {
-      return res.status(404).send({ message: "User not found" });
-    }
-
-    const token = JWT.sign({ _id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-
-    // Send reset email
-    await sendResetEmail(email, token);
-
-    res.status(200).send({
-      success: true,
-      message: "Password reset email sent successfully",
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(500).send({
-      success: false,
-      message: "Error in sending password reset email",
-      error,
-    });
-  }
-};
-// Reset Password Controller
-export const PasswordResetController = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const { token } = req.params; // Retrieve token from URL params
-    if (!email) {
-      return res.status(400).send({ message: "Email is required" });
-    }
-    if (!password) {
-      return res.status(400).send({ message: "Password is required" });
-    }
-
-    // Verify token
-    let decoded;
     try {
-      decoded = JWT.verify(token, process.env.JWT_SECRET);
+      const response = await axios.post(
+        "https://earning-site-fll-backend-code.onrender.com/api/v1/ads/create-user-ads",
+        {
+          adId: currentAd._id,
+          viewedSeconds: currentAd.duration,
+        }
+      );
+
+      console.log("Ad view recorded successfully:", response.data);
+      setShowTimer(false);
+      setRemainingTime(0);
+      setSubmitTimer(0);
+
+      if (currentAdIndex < ads.length - 1) {
+        const nextIndex = currentAdIndex + 1;
+        setCurrentAdIndex(nextIndex);
+        localStorage.setItem("currentAdIndex", nextIndex);
+        setRemainingTime(ads[nextIndex].duration);
+        setSubmitTimer(ads[nextIndex].duration); // Reset submit timer for next ad
+        setShowTimer(true);
+      } else {
+        setMessage("No more ads available.");
+        setShowTimer(false);
+        const now = moment();
+        const nextAdTime = now.add(24, "hours").toDate();
+        setNextAvailableTime(nextAdTime);
+      }
+
+      setTotalEarnings((prevEarnings) => prevEarnings + currentAd.earningRate);
     } catch (error) {
-      return res.status(400).send({ message: "Invalid or expired token" });
+      console.error("Error recording ad view:", error.response.data);
+      setMessage(error.response.data.message || "Error recording ad view.");
     }
+  };
 
-    // Find user by ID from token
-    const user = await UserModel.findOne({ email });
-    // If user not found or answer is incorrect
-    if (!user) {
-      return res
-        .status(404)
-        .send({ success: false, message: "Wrong email or answer" });
-    }
-    // Hash new password
-    const hashedPassword = await HashPassword(password);
-    await UserModel.findByIdAndUpdate(user._id, { password: hashedPassword });
-    return res
-      .status(200)
-      .send({ success: true, message: "Password reset successfully" });
-  } catch (error) {
-    console.log(error);
-    res.status(500).send({
-      success: false,
-      message: "Error in resetting password",
-      error,
-    });
-  }
+  const formatTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours}h ${minutes}m ${secs}s`;
+  };
+
+  const currentAd = ads[currentAdIndex];
+  const timerTime = nextAvailableTime
+    ? Math.max(moment(nextAvailableTime).unix() - moment().unix(), 0)
+    : 0;
+
+  return (
+    <Layout>
+      <div
+        className="dashboard-container bg-light text-center py-4 p-5 position-relative"
+        style={{
+          height: "auto",
+          borderRadius: "10px",
+          boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+          marginTop: "130px",
+        }}
+      >
+        <div className="d-flex justify-content-between align-items-center h-100 flex-wrap">
+          <div>
+            <h1
+              style={{ fontSize: "35px", fontWeight: "bold ", color: "black" }}
+            >
+              WATCH ADS
+            </h1>
+          </div>
+          <div className="d-flex align-items-center details-container">
+            <img
+              src={logo}
+              alt="Dashboard Logo"
+              className="dashboard-logo"
+              style={{
+                borderRadius: "10px",
+                width: "100px",
+                height: "100px",
+                marginLeft: "20px",
+              }}
+            />
+            <div
+              className="mt-5 mb-5 p-5"
+              style={{
+                background: "white",
+                padding: "10px",
+                borderRadius: "10px",
+                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                marginRight: "30px",
+              }}
+            >
+              <p className="text-muted mb-1">
+                <span
+                  className="fw-bold"
+                  style={{ fontSize: "30px", color: "black" }}
+                >
+                  👨 {auth?.user?.username}
+                </span>
+              </p>
+              <p className="text-muted mb-1">
+                <span className="fw-bold" style={{ color: "black" }}>
+                  Earnings:
+                </span>{" "}
+                {loading ? (
+                  <span>Loading...</span>
+                ) : (
+                  <span style={{ color: "black" }}>
+                    {earnings ? earnings.earnings : "0"} Rs
+                  </span>
+                )}
+              </p>
+              <p className="text-muted mb-0">
+                <span className="fw-bold" style={{ color: "black" }}>
+                  Total Earnings:
+                </span>{" "}
+                {loading ? (
+                  <span>Loading...</span>
+                ) : (
+                  <span style={{ color: "black" }}>
+                    {earnings ? earnings.totalEarnings : "0"} Rs
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="d-flex justify-content-center mt-5">
+        {nextAvailableTime && (
+          <div
+            className="card p-3"
+            style={{
+              width: "300px",
+              margin: "0 10px",
+              background: "#f8f9fa",
+              borderRadius: "10px",
+              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h5>Next Ad Available In:</h5>
+            <h3>{formatTime(timerTime)}</h3>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4">
+        {currentAd ? (
+          <>
+            <h1
+              className="mt-5"
+              style={{
+                textAlign: "center ",
+                fontSize: "50px",
+                color: "#00ffee",
+              }}
+            >
+              {currentAd.title}
+            </h1>
+            <div className="ratio ratio-4x3 d-flex justify-content-center">
+              <iframe
+                ref={videoRef}
+                src={`${currentAd.videoLink}?autoplay=1&mute=1`} // Added autoplay and mute parameters
+                controls
+                style={{
+                  borderRadius: "10px",
+                  border: "none",
+                  boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                }}
+                onPlay={handleVideoPlay}
+                onPause={handleVideoPause}
+              ></iframe>
+            </div>
+
+            {showTimer && (
+              <div className="text-center mt-4">
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSubmit}
+                  disabled={submitTimer > 0}
+                >
+                  {submitTimer > 0 ? (
+                    <>
+                      <span className="mr-2">Submitting...</span>
+                      <span>{formatTime(submitTimer)}</span>
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center">
+            <p>No ads available at the moment. Please check back later.</p>
+          </div>
+        )}
+      </div>
+      <div className="mt-5 text-center">
+        {message && <p className="text-danger">{message}</p>}
+      </div>
+    </Layout>
+  );
 };
 
-//update profile
-export const ProfileController = async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-    const user = await UserModel.findById(req.user._id);
-
-    //password
-    if (password && password.length < 8) {
-      return res.json({
-        error: "Password is required and must be at least 8 characters long",
-      });
-    }
-    const hashedPassword = password ? await HashPassword(password) : undefined;
-    const updatedUser = await UserModel.findByIdAndUpdate(
-      req.user._id,
-      {
-        username: username || user.username,
-        email: email || user.email,
-
-        password: hashedPassword || user.password,
-      },
-      { new: true } // This closing curly brace was missing
-    );
-    res.status(200).send({
-      success: true,
-      message: "Profile Updated Successfully",
-      updatedUser,
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(401).send({
-      success: false,
-      message: "Error in profile update",
-      error,
-    });
-  }
-};
-
-//Profile password update
-export const updatePasswordController = async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-    // Fetch the user from the database
-    const user = await UserModel.findById(req.user._id);
-
-    // Check if current password matches
-    const match = await ComparePassword(currentPassword, user.password);
-    if (!match) {
-      return res
-        .status(400)
-        .send({ success: false, message: "Current password is incorrect" });
-    }
-
-    // Validate new password length
-    if (!newPassword || newPassword.length < 8) {
-      return res.status(400).send({
-        success: false,
-        message:
-          "New password is required and must be at least 8 characters long",
-      });
-    }
-
-    // Hash the new password
-    const hashedPassword = await HashPassword(newPassword);
-
-    // Update the user's password in the database
-    await UserModel.findByIdAndUpdate(req.user._id, {
-      password: hashedPassword,
-    });
-
-    return res
-      .status(200)
-      .send({ success: true, message: "Password updated successfully" });
-  } catch (error) {
-    console.log(error);
-    return res.status(500).send({
-      success: false,
-      message: "Error while updating password",
-      error,
-    });
-  }
-};
-
-//All user
-export const allUserController = async (req, res) => {
-  try {
-    // Fetch all users from the database
-    const users = await UserModel.find(); // Use find() without any conditions to get all documents
-    res.status(200).send(users); // Send the users as JSON response
-  } catch (error) {
-    console.error("Error fetching all users:", error);
-    res.status(500).send({ error: "Internal server error" });
-  }
-};
-
-//totel count user
-export const getTotalUsersCount = async (req, res) => {
-  try {
-    const userCount = await UserModel.countDocuments({});
-    res.status(200).json({ userCount });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-//check the recent user register
-/*export const recentController = async (req, res) => {
-  try {
-    const recentUsers = await UserModel.find().sort({ createdAt: -1 }).limit(5);
-    res.status(200).json(recentUsers);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-//show the user earning
-
-export const getUserEarnings = async (req, res) => {
-  try {
-    const user = await UserModel.findById(req.params.userId);
-    if (!user) {
-      
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.status(200).json({ earnings: user.earnings });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server Error" });
-  }
-};*/
-//total refferal
-
-export const getTotalReferrals = async (req, res) => {
-  try {
-    // Get the user ID from the authenticated request
-    const userId = req.user._id; // Assuming you store user ID in req.user from authentication middleware
-
-    // Find the user based on user ID
-    const user = await UserModel.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    // Find all users who have registered with this user's referral code
-    const referredUsers = await UserModel.find({
-      referredBy: user.referralCode,
-    });
-
-    // Prepare an array to store referral details
-    let referralDetails = [];
-
-    // Loop through referred users to fetch their details
-    for (const referredUser of referredUsers) {
-      // Find package purchase details for each referred user
-      const packagePurchase = await PackagePurchaseModel.findOne({
-        userId: referredUser._id,
-      }).populate("packagesId", "name packageStatus"); // Populate 'packagesId' with 'name' and 'packageStatus'
-
-      // Add relevant details to referralDetails
-      referralDetails.push({
-        username: referredUser.username,
-        email: referredUser.email,
-        packageName: packagePurchase ? packagePurchase.packagesId.name : null,
-        packageStatus: packagePurchase ? packagePurchase.packageStatus : null,
-      });
-    }
-
-    // Get the total number of referrals
-    const totalReferrals = referralDetails.length;
-
-    res.status(200).json({ totalReferrals, referralDetails });
-  } catch (error) {
-    console.error("Error fetching total referrals:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-// UserController.js
-// UserController.js
-// controllers/userController.js
-
-export const getEarningSlug = async (req, res) => {
-  try {
-    const userId = req.user._id; // Get the logged-in user's ID from the request object
-    const user = await UserModel.findById(userId).select(
-      "earnings TotalEarnings CommissionAmount"
-    ); // Fetch user's earnings and totalEarnings
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.status(200).json({
-      earnings: user.earnings,
-      totalEarnings: user.TotalEarnings,
-      CommissionAmount: user.CommissionAmount,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
-//seach
-export const searchController = async (req, res) => {
-  try {
-    const { username } = req.query;
-    const users = await UserModel.find({ username: new RegExp(username, "i") });
-    res.status(200).json(users);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ message: "Server error", error: error.message });
-  }
-};
-
-//get refferal code
-export const getRefferalCodeController = async (req, res) => {
-  try {
-    const userId = req.user._id; // Assuming req.user contains the authenticated user
-    const user = await UserModel.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.status(200).json({ referralCode: user.referralCode });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-//get refferal link
-export const getRefferallinkCodeController = async (req, res) => {
-  try {
-    const userId = req.user._id; // Assuming req.user contains the authenticated user
-    const user = await UserModel.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.status(200).json({ referralLink: user.referralLink });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
+export default Ads;
