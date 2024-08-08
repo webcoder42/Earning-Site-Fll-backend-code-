@@ -197,7 +197,7 @@ const sendResetEmail = async (email, token) => {
     to: email,
     subject: "Password Reset",
     text: `To reset your password, please click the link below:
-  https://deluxe-daffodil-bca2f0.netlify.app/api/v1/users/request-password-reset/${token}`, 
+ https://deluxe-daffodil-bca2f0.netlify.app/request-password-reset/${token}`, 
   };
 
   await transporter.sendMail(mailOptions);
