@@ -26,7 +26,7 @@ const generateUniqueSlug = async (username) => {
   return slug;
 };
 const generateReferralLink = (referralCode) => {
-   text: `Welcome to over company here yoou can earn money with different method and daily withdrawal. Pakistan no one website tht fully secure for all user. Feel free to work here and make you profits daily:
+ 
   const baseUrl = "https://deluxe-daffodil-bca2f0.netlify.app"; // Replace with your actual base URL
   return `${baseUrl}/login?referralCode=${referralCode}`;
 };
@@ -197,7 +197,7 @@ const sendResetEmail = async (email, token) => {
     to: email,
     subject: "Password Reset",
     text: `To reset your password, please click the link below:
-  https://deluxe-daffodil-bca2f0.netlify.app/request-password-reset/${token}`, // Corrected the link
+  https://deluxe-daffodil-bca2f0.netlify.app/api/v1/users/request-password-reset/${token}`, 
   };
 
   await transporter.sendMail(mailOptions);
