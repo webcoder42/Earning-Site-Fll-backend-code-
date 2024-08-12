@@ -27,7 +27,7 @@ const generateUniqueSlug = async (username) => {
 };
 const generateReferralLink = (referralCode) => {
  
-  const baseUrl = "https://earn-tube.online/"; // Replace with your actual base URL
+  const baseUrl = "https://earn-tube.online"; // Replace with your actual base URL
   return `${baseUrl}/login?referralCode=${referralCode}`;
 };
 
