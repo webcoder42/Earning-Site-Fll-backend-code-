@@ -14,6 +14,7 @@ import {
   getTotalReferrals,
   getRefferalCodeController,
   getRefferallinkCodeController,
+  getAllReferralsDetails,
 } from "../Controller/UserController.js";
 import { isAdmin, requireSignIn } from "../middleware/UserMiddleware.js";
 
@@ -76,5 +77,12 @@ router.get("/get-refferallink", requireSignIn, getRefferallinkCodeController);
 
 //search
 router.get("/users/search", requireSignIn, isAdmin, searchController);
+
+router.get(
+  "/referrals/details/:userId",
+  requireSignIn,
+  isAdmin,
+  getAllReferralsDetails
+);
 
 export default router;
