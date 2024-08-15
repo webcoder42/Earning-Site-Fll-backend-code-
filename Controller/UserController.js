@@ -528,3 +528,48 @@ export const getRefferallinkCodeController = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+export const getAllReferralsDetails = async (req, res) => {
+  try {
+    const adminId = req.user._id; // Assuming req.user contains the authenticated admin
+    const { userId } = req.params; // Get user ID from route parameters
+
+    // Find the user based on user ID
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Find all users who have registered with this user's referral code
+    const referredUsers = await UserModel.find({
+      referredBy: user.referralCode,
+    });
+
+    // Prepare an array to store referral details
+    let referralDetails = [];
+
+    // Loop through referred users to fetch their details
+    for (const referredUser of referredUsers) {
+      // Find package purchase details for each referred user
+      const packagePurchase = await PackagePurchaseModel.findOne({
+        userId: referredUser._id,
+      })
+        .populate("packagesId", "name packageStatus")
+        .exec(); // Populate 'packagesId' with 'name' and 'packageStatus'
+
+      // Add relevant details to referralDetails
+      referralDetails.push({
+        username: referredUser.username,
+        email: referredUser.email,
+        packageName: packagePurchase ? packagePurchase.packagesId.name : null,
+        packageStatus: packagePurchase ? packagePurchase.packageStatus : null,
+        createdAt: referredUser.createdAt,
+      });
+    }
+
+    res.status(200).json({ referralDetails });
+  } catch (error) {
+    console.error("Error fetching referral details:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
