@@ -1,4 +1,4 @@
-import fs from "fs/promises"; // Use fs.promises for asynchronous file operations
+import fs from "fs";
 import SliderImgModels from "../models/SliderImgModels";
 
 export const imageController = async (req, res) => {
