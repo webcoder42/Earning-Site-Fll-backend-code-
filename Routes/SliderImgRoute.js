@@ -1,7 +1,8 @@
 import express from "express";
 import { isAdmin, requireSignIn } from "../middleware/UserMiddleware.js";
-import { imageController } from "../Controller/SliderImgController.js";
+
 import Formidable from "express-formidable";
+import { imageController } from "./../Controller/SliderImgController.js";
 
 const router = express.Router();
 
