@@ -17,6 +17,7 @@ import Contact from "./Routes/ContactRoute.js";
 import Subscribe from "./Routes/SubscribeRoute.js";
 import Commision from "./Routes/CommissionRoute.js";
 import Image from "./Routes/SliderImgRoute.js";
+import Task from "./Routes/TaskRoute.js";
 import "./Helper/cronJobs.js";
 
 import cors from "cors";
@@ -45,6 +46,7 @@ app.use("/api/v1/notifiication", Notification);
 app.use("/api/v1/contact", Contact);
 app.use("/api/v1/subscribe", Subscribe);
 app.use("/api/v1/img", Image);
+app.use("/api/v1/task", Task);
 
 app.get("/", (req, res) => {
   res.send("Welcome to web");
