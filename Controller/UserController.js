@@ -470,8 +470,8 @@ export const getEarningSlug = async (req, res) => {
   try {
     const userId = req.user._id; // Get the logged-in user's ID from the request object
     const user = await UserModel.findById(userId).select(
-      "earnings TotalEarnings CommissionAmount"
-    ); // Fetch user's earnings and totalEarnings
+      "earnings TotalEarnings CommissionAmount currency" // Fetch user's earnings, totalEarnings, and currency
+    );
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -481,6 +481,7 @@ export const getEarningSlug = async (req, res) => {
       earnings: user.earnings,
       totalEarnings: user.TotalEarnings,
       CommissionAmount: user.CommissionAmount,
+      currency: user.currency, // Return the user's currency
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
