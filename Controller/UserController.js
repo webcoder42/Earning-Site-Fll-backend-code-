@@ -26,15 +26,14 @@ const generateUniqueSlug = async (username) => {
   return slug;
 };
 const generateReferralLink = (referralCode) => {
- 
-  const baseUrl = "https://earn-tube.online"; // Replace with your actual base URL
+  const baseUrl = "https://aesthetic-melba-0fd5ab.netlify.app"; // Replace with your actual base URL
   return `${baseUrl}/login?referralCode=${referralCode}`;
 };
 
 // Registration Controller
 export const registerController = async (req, res) => {
   try {
-    const { username, email, password, referralCode } = req.body;
+    const { username, email, currency, password, referralCode } = req.body;
 
     // Validation
     if (!username) {
@@ -42,6 +41,9 @@ export const registerController = async (req, res) => {
     }
     if (!email) {
       return res.status(400).send({ message: "Email is required" });
+    }
+    if (!currency) {
+      return res.status(400).send({ message: "currency is required" });
     }
     if (!password) {
       return res.status(400).send({ message: "Password is required" });
@@ -75,6 +77,7 @@ export const registerController = async (req, res) => {
       username,
       slug,
       email,
+      currency,
       password: hashedPassword,
       referralCode: newReferralCode,
       referralLink,
@@ -197,7 +200,7 @@ const sendResetEmail = async (email, token) => {
     to: email,
     subject: "Password Reset",
     text: `To reset your password, please click the link below:
-https://earn-tube.online/request-password-reset/${token}`, 
+   https://aesthetic-melba-0fd5ab.netlify.app/request-password-reset/${token}`, // Corrected the link
   };
 
   await transporter.sendMail(mailOptions);
