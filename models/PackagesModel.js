@@ -7,6 +7,10 @@ const packagesSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    Packagecurrency: {
+      type: String,
+      enum: ["USD", "PKR"],
+    },
     slug: {
       type: String,
       lowercase: true,
