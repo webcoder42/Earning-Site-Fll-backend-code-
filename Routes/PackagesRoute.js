@@ -4,6 +4,7 @@ import {
   createPackageController,
   deletePackageController,
   getAllPackageController,
+  getPackage,
   singlePackageController,
   updatePackageController,
 } from "../Controller/PackageController.js";
@@ -15,6 +16,9 @@ router.post("/create-package", requireSignIn, isAdmin, createPackageController);
 
 //get all package
 router.get("/all-package", requireSignIn, getAllPackageController);
+
+//get usd /pkr package
+router.get("/get-package", requireSignIn, getPackage);
 
 // Get single package by slug
 router.get("/single-package/:slug", requireSignIn, singlePackageController);
