@@ -42,9 +42,7 @@ export const registerController = async (req, res) => {
     if (!email) {
       return res.status(400).send({ message: "Email is required" });
     }
-    if (!currency) {
-      return res.status(400).send({ message: "currency is required" });
-    }
+
     if (!password) {
       return res.status(400).send({ message: "Password is required" });
     }
