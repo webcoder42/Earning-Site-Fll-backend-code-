@@ -26,7 +26,7 @@ const generateUniqueSlug = async (username) => {
   return slug;
 };
 const generateReferralLink = (referralCode) => {
-  const baseUrl = "https://aesthetic-melba-0fd5ab.netlify.app"; // Replace with your actual base URL
+  const baseUrl = "https://earn-tube.online"; // Replace with your actual base URL
   return `${baseUrl}/login?referralCode=${referralCode}`;
 };
 
