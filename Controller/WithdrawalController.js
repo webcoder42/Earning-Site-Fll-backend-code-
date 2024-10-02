@@ -82,6 +82,7 @@ export const getSingleAccountController = async (req, res) => {
       withdrawalAccount: {
         _id: withdrawalAccount._id,
         method: withdrawalAccount.method,
+        minAmount: withdrawalAccount.minAmount,
         // Include photo data if available
         photo: photoData,
       },
