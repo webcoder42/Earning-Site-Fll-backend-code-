@@ -49,7 +49,7 @@ const packagesSchema = new mongoose.Schema(
       default: 0,
     },
     commissionRate: {
-      type: Number,
+      type: String,
       required: true,
     },
   },
