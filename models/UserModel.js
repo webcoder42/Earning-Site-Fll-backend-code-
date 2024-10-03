@@ -73,7 +73,7 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
     CommissionAmount: {
-      type: Number,
+       type: string,
       default: 0,
     },
     accountStatus: {
