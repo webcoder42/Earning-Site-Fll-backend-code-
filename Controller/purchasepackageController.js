@@ -2,21 +2,6 @@ import PackagePurchaseModel from "../models/PackagePurchaseModel.js";
 import PackagesModel from "../models/PackagesModel.js";
 import UserModel from "../models/UserModel.js"; // Assuming UserModel is your user model
 
-// Function to update expired packages
-const updateExpiredPackages = async (userId) => {
-  const currentDate = new Date();
-
-  // Find and update all expired packages for the user
-  await PackagePurchaseModel.updateMany(
-    {
-      userId,
-      expiryDate: { $lte: currentDate },
-      packageStatus: { $ne: "Expired" },
-    },
-    { $set: { packageStatus: "Expired" } }
-  );
-};
-
 export const packagePurchaseController = async (req, res) => {
   try {
     const { slug, transactionId, sendernumber } = req.body;
@@ -38,13 +23,12 @@ export const packagePurchaseController = async (req, res) => {
         .json({ message: "Package not available or inactive" });
     }
 
-    // Update expired packages for the user
-    await updateExpiredPackages(userId);
-
-    // Check if the user already has an active or expired package
+    // Check if the user already has an active package
     const existingPurchase = await PackagePurchaseModel.findOne({
       userId,
-      packageStatus: { $in: ["Active", "pending", "Expired"] },
+      packageStatus: {
+        $in: ["Active", "pending", "Completed", "Expired", "cancel"],
+      },
     });
 
     // Get the current date
@@ -55,12 +39,16 @@ export const packagePurchaseController = async (req, res) => {
     expiryDate.setDate(expiryDate.getDate() + pkg.duration);
 
     if (existingPurchase) {
+      // Check if the existing package has expired
+      if (existingPurchase.expiryDate <= currentDate) {
+        existingPurchase.packageStatus = "Expired";
+      } else {
+        existingPurchase.packageStatus = "pending"; // Or other logic as needed
+      }
+
       // Update existing package details
       existingPurchase.packagesId = pkg._id;
       existingPurchase.expiryDate = expiryDate;
-      existingPurchase.transactionId = transactionId;
-      existingPurchase.sendernumber = sendernumber;
-      existingPurchase.packageStatus = "pending"; // Initially pending
 
       await existingPurchase.save();
 
@@ -93,7 +81,7 @@ export const packagePurchaseController = async (req, res) => {
   }
 };
 
-// Get all transactions
+//get all transaction
 export const getAllTransactionController = async (req, res) => {
   try {
     const transactions = await PackagePurchaseModel.find({})
@@ -124,6 +112,8 @@ export const getAllTransactionController = async (req, res) => {
   }
 };
 
+//upate status
+// Update status of the package purchase
 // Update status of the package purchase
 export const updateStatusController = async (req, res) => {
   try {
@@ -136,23 +126,28 @@ export const updateStatusController = async (req, res) => {
       return res.status(404).json({ message: "Package purchase not found" });
     }
 
-    // Update expired packages for the user
-    await updateExpiredPackages(purchase.userId);
-
-    // Validate and update the status
-    const validStatusValues = [
-      "pending",
-      "processing",
-      "Active",
-      "cancel",
-      "Expired",
-      "Completed",
-    ];
-    if (!validStatusValues.includes(packageStatus)) {
-      return res.status(400).json({ message: "Invalid package status" });
+    // Check for expiry immediately
+    const currentDate = new Date();
+    if (
+      purchase.expiryDate <= currentDate &&
+      purchase.packageStatus !== "Expired"
+    ) {
+      purchase.packageStatus = "Expired";
+    } else {
+      // Validate and update the status
+      const validStatusValues = [
+        "pending",
+        "processing",
+        "Active",
+        "cancel",
+        "Expired",
+        "Completed",
+      ];
+      if (!validStatusValues.includes(packageStatus)) {
+        return res.status(400).json({ message: "Invalid package status" });
+      }
+      purchase.packageStatus = packageStatus;
     }
-    purchase.packageStatus = packageStatus;
-
     // Finalize commission when package becomes active
     if (packageStatus === "Active") {
       const user = await UserModel.findById(purchase.userId);
@@ -208,13 +203,37 @@ export const updateStatusController = async (req, res) => {
   }
 };
 
-// Get user membership details
-export const getUserMembershipController = async (req, res) => {
+//get single
+/*export const getSingleController = async (req, res) => {
   try {
     const userId = req.user._id; // Ensure this gets the user ID from the logged-in user context
 
-    // Update expired packages for the user
-    await updateExpiredPackages(userId);
+    // Find the user's membership details
+    const membership = await PackagePurchaseModel.findOne({ userId }).populate({
+      path: "packagesId",
+      select: "name duration earningRate",
+      model: PackagesModel,
+    });
+
+    if (!membership) {
+      return res.status(404).json({ message: "No membership found" });
+    }
+
+    res.status(200).json({
+      packageName: membership.packagesId.name,
+      packageStatus: membership.packageStatus,
+      purchaseDate: membership.purchaseDate,
+      expiryDate: membership.expiryDate,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+};*/
+//get single
+export const getUserMembershipController = async (req, res) => {
+  try {
+    const userId = req.user._id; // Ensure this gets the user ID from the logged-in user context
 
     // Find the user's membership details
     const membership = await PackagePurchaseModel.findOne({ userId }).populate({
@@ -239,8 +258,9 @@ export const getUserMembershipController = async (req, res) => {
   }
 };
 
-// Create commission
-export const createCommissionController = async (req, res) => {
+//create commission
+
+/*export const createCommissionController = async (req, res) => {
   const { userId, packageId } = req.body;
 
   try {
@@ -258,37 +278,49 @@ export const createCommissionController = async (req, res) => {
 
     // Check if package is active
     if (packages.isActive) {
-      // Calculate and update commission for the referrer
+      // Calculate commission for referrer if referral code exists
       if (user.referralCode) {
         const referrer = await UserModel.findOne({
           referralCode: user.referralCode,
         });
-
         if (referrer) {
-          // Add the commission
-          referrer.CommissionAmount =
-            (referrer.CommissionAmount || 0) + packages.commissionRate;
-          referrer.earnings =
-            (referrer.earnings || 0) + packages.commissionRate;
-          referrer.TotalEarnings =
-            (referrer.TotalEarnings || 0) + packages.commissionRate;
-
-          await referrer.save();
-
-          console.log(
-            `Commission added for referrer: ${referrer.email}, amount: ${packages.commissionRate}`
+          // Check if referrer's package is also active
+          const referrerPackage = await PackagesModel.findById(
+            referrer.packageId
           );
+          if (referrerPackage.isActive) {
+            referrer.commission += packages.commissionRate;
+            await referrer.save();
+          } else {
+            console.log(
+              `Referrer's package (${referrerPackage.name}) is not active, commission not added.`
+            );
+          }
         }
       }
-    }
 
-    // Return success response
-    res.status(200).json({
-      message: "Commission created successfully",
-      commissionAmount: packages.commissionRate,
-    });
+      // Update user's package activation status
+      user.packageActivationStatus = "Active";
+      await user.save();
+
+      // Create package purchase record
+      const packagePurchase = new PackagePurchaseModel({
+        userId: userId,
+        packageId: packageId,
+
+        paymentStatus: "Completed",
+        packageStatus: "Active",
+      });
+
+      await packagePurchase.save();
+
+      res.status(200).send("Package purchased successfully");
+    } else {
+      res.status(400).send("Package is not active");
+    }
   } catch (error) {
-    console.error("Error creating commission:", error);
-    res.status(500).json({ message: "Error creating commission" });
+    console.error("Error purchasing package:", error);
+    res.status(500).send("Internal Server Error");
   }
 };
+*/
