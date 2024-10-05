@@ -2,6 +2,7 @@ import PackagePurchaseModel from "../models/PackagePurchaseModel.js";
 import PackagesModel from "../models/PackagesModel.js";
 import UserModel from "../models/UserModel.js"; // Assuming UserModel is your user model
 
+// Package Purchase Controller
 export const packagePurchaseController = async (req, res) => {
   try {
     const { slug, transactionId, sendernumber } = req.body;
@@ -31,22 +32,17 @@ export const packagePurchaseController = async (req, res) => {
       },
     });
 
-    // Get the current date
     const currentDate = new Date();
-
-    // Calculate the expiry date by adding the package duration to the current date
     const expiryDate = new Date(currentDate);
-    expiryDate.setDate(expiryDate.getDate() + pkg.duration);
+    expiryDate.setDate(expiryDate.getDate() + pkg.duration); // Calculate expiry
 
     if (existingPurchase) {
-      // Check if the existing package has expired
       if (existingPurchase.expiryDate <= currentDate) {
         existingPurchase.packageStatus = "Expired";
       } else {
-        existingPurchase.packageStatus = "pending"; // Or other logic as needed
+        existingPurchase.packageStatus = "pending";
       }
 
-      // Update existing package details
       existingPurchase.packagesId = pkg._id;
       existingPurchase.expiryDate = expiryDate;
 
@@ -57,16 +53,15 @@ export const packagePurchaseController = async (req, res) => {
         purchase: existingPurchase,
       });
     } else {
-      // Create a new PackagePurchase document for the new package
       const purchase = new PackagePurchaseModel({
-        userId: userId,
+        userId,
         packagesId: pkg._id,
         purchaseDate: currentDate,
-        expiryDate: expiryDate,
-        transactionId: transactionId,
-        sendernumber: sendernumber,
+        expiryDate,
+        transactionId,
+        sendernumber,
         paymentStatus: "Completed",
-        packageStatus: "pending", // Initially pending
+        packageStatus: "pending",
       });
 
       await purchase.save();
@@ -81,15 +76,11 @@ export const packagePurchaseController = async (req, res) => {
   }
 };
 
-//get all transaction
+// Get all transactions
 export const getAllTransactionController = async (req, res) => {
   try {
     const transactions = await PackagePurchaseModel.find({})
-      .populate({
-        path: "userId",
-        select: "email",
-        model: UserModel,
-      })
+      .populate({ path: "userId", select: "email", model: UserModel })
       .populate({
         path: "packagesId",
         select: "name price",
@@ -112,11 +103,7 @@ export const getAllTransactionController = async (req, res) => {
   }
 };
 
-//upate status
-// Update status of the package purchase
-// Update status of the package purchase
-// Define your exchange rate
-// Define your exchange rate
+// Update package status and handle commission
 const USD_TO_PKR_RATE = 280;
 
 export const updateStatusController = async (req, res) => {
@@ -160,44 +147,41 @@ export const updateStatusController = async (req, res) => {
         const referrer = await UserModel.findOne({
           referralCode: user.referredBy,
         });
-
         if (referrer) {
           const pkg = await PackagesModel.findById(purchase.packagesId);
           if (pkg) {
             const commissionRate = pkg.commissionRate || 0;
 
-            // Get the package's currency
-            const Packagecurrency = pkg.Packagecurrency || "PKR"; // Default to PKR if not set
+            // Check currencies
+            const userCurrency = user.currency; // User's currency
+            const referrerCurrency = referrer.currency; // Referrer's currency
 
-            // Get referrer's currency
-            const referrerCurrency = referrer.currency || "PKR"; // Default to PKR if not set
+            let commissionToAdd;
 
-            let commissionToAdd = commissionRate;
-
-            // If the package currency is different from the referrer's currency, convert the commission accordingly
-            if (Packagecurrency !== referrerCurrency) {
-              if (Packagecurrency === "USD" && referrerCurrency === "PKR") {
-                // Convert USD to PKR
-                commissionToAdd = commissionRate * USD_TO_PKR_RATE;
-              } else if (
-                Packagecurrency === "PKR" &&
-                referrerCurrency === "USD"
-              ) {
-                // Convert PKR to USD
-                commissionToAdd = commissionRate / USD_TO_PKR_RATE;
+            if (userCurrency === referrerCurrency) {
+              // Same currency, add directly
+              commissionToAdd = commissionRate;
+            } else {
+              // Different currencies, handle conversion
+              if (userCurrency === "USD" && referrerCurrency === "PKR") {
+                // Convert commission rate from USD to PKR
+                commissionToAdd = commissionRate * 280; // Assuming 1 USD = 280 PKR
+              } else if (userCurrency === "PKR" && referrerCurrency === "USD") {
+                // Convert commission rate from PKR to USD
+                commissionToAdd = commissionRate / 280; // Assuming 1 USD = 280 PKR
+              } else {
+                return res
+                  .status(400)
+                  .json({ message: "Unsupported currency conversion." });
               }
             }
-            // If currencies are same, commissionToAdd remains as commissionRate
 
-            // Add the calculated commission to the referrer's earnings and totals
+            // Add the commission
             referrer.CommissionAmount =
-              (parseFloat(referrer.CommissionAmount) || 0) + commissionToAdd;
-            referrer.earnings =
-              (parseFloat(referrer.earnings) || 0) + commissionToAdd;
+              (referrer.CommissionAmount || 0) + commissionToAdd;
+            referrer.earnings = (referrer.earnings || 0) + commissionToAdd;
             referrer.TotalEarnings =
-              (parseFloat(referrer.TotalEarnings) || 0) + commissionToAdd;
-
-            // Save the referrer with the updated earnings
+              (referrer.TotalEarnings || 0) + commissionToAdd;
             await referrer.save();
           }
         }
@@ -208,42 +192,41 @@ export const updateStatusController = async (req, res) => {
         const referrer = await UserModel.findOne({
           referralCode: user.referredBy,
         });
-
         if (referrer) {
           const pkg = await PackagesModel.findById(purchase.packagesId);
           if (pkg) {
             const commissionRate = pkg.commissionRate || 0;
 
-            // Get the package's currency
-            const packageCurrency = pkg.currency || "PKR"; // Default to PKR if not set
+            // Check currencies
+            const userCurrency = user.currency; // User's currency
+            const referrerCurrency = referrer.currency; // Referrer's currency
 
-            // Get referrer's currency
-            const referrerCurrency = referrer.currency || "PKR"; // Default to PKR if not set
+            let commissionToDeduct;
 
-            let commissionToDeduct = commissionRate;
-
-            // If the package currency is different from the referrer's currency, convert the commission accordingly
-            if (packageCurrency !== referrerCurrency) {
-              if (packageCurrency === "USD" && referrerCurrency === "PKR") {
-                // Convert USD to PKR
-                commissionToDeduct = commissionRate * USD_TO_PKR_RATE;
-              } else if (
-                packageCurrency === "PKR" &&
-                referrerCurrency === "USD"
-              ) {
-                // Convert PKR to USD
-                commissionToDeduct = commissionRate / USD_TO_PKR_RATE;
+            if (userCurrency === referrerCurrency) {
+              // Same currency, deduct directly
+              commissionToDeduct = commissionRate;
+            } else {
+              // Different currencies, handle conversion
+              if (userCurrency === "USD" && referrerCurrency === "PKR") {
+                // Convert commission rate from USD to PKR
+                commissionToDeduct = commissionRate * 280; // Assuming 1 USD = 280 PKR
+              } else if (userCurrency === "PKR" && referrerCurrency === "USD") {
+                // Convert commission rate from PKR to USD
+                commissionToDeduct = commissionRate / 280; // Assuming 1 USD = 280 PKR
+              } else {
+                return res
+                  .status(400)
+                  .json({ message: "Unsupported currency conversion." });
               }
             }
 
-            // Deduct the calculated commission from the referrer's earnings and totals
+            // Deduct the commission
             referrer.CommissionAmount =
-              (parseFloat(referrer.CommissionAmount) || 0) - commissionToDeduct;
-            referrer.earnings =
-              (parseFloat(referrer.earnings) || 0) - commissionToDeduct;
+              (referrer.CommissionAmount || 0) - commissionToDeduct;
+            referrer.earnings = (referrer.earnings || 0) - commissionToDeduct;
             referrer.TotalEarnings =
-              (parseFloat(referrer.TotalEarnings) || 0) - commissionToDeduct;
-
+              (referrer.TotalEarnings || 0) - commissionToDeduct;
             await referrer.save();
           }
         }
@@ -261,39 +244,12 @@ export const updateStatusController = async (req, res) => {
     res.status(500).json({ message: "Something went wrong" });
   }
 };
-//get single
-/*export const getSingleController = async (req, res) => {
-  try {
-    const userId = req.user._id; // Ensure this gets the user ID from the logged-in user context
 
-    // Find the user's membership details
-    const membership = await PackagePurchaseModel.findOne({ userId }).populate({
-      path: "packagesId",
-      select: "name aduration earningRate",
-      model: PackagesModel,
-    });
-
-    if (!membership) {
-      return res.status(404).json({ message: "No membership found" });
-    }
-
-    res.status(200).json({
-      packageName: membership.packagesId.name,
-      packageStatus: membership.packageStatus,
-      purchaseDate: membership.purchaseDate,
-      expiryDate: membership.expiryDate,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Something went wrong" });
-  }
-};*/
-//get single
+// Get user membership details
 export const getUserMembershipController = async (req, res) => {
   try {
-    const userId = req.user._id; // Ensure this gets the user ID from the logged-in user context
+    const userId = req.user._id;
 
-    // Find the user's membership details
     const membership = await PackagePurchaseModel.findOne({ userId }).populate({
       path: "packagesId",
       select: "name duration earningRate",
