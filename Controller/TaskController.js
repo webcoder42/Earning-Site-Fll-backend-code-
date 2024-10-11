@@ -2,17 +2,19 @@ import TaskModel from "../models/TaskModel.js";
 import UserModel from "../models/UserModel.js"; // Assuming user schema is in UserModel
 
 // Create a new task (Admin only)
+// Create a new task (Admin only)
 export const createTaskController = async (req, res) => {
   try {
     const {
       taskType,
-      accountType,
       referralRequirement,
       offerDay,
-      Links, // For link type tasks
+      Links,
+      monthlyDay,
       price,
       reward,
       followLink,
+      currency, // Currency field added
     } = req.body;
 
     // Validation
@@ -20,8 +22,10 @@ export const createTaskController = async (req, res) => {
       return res.status(400).json({ error: "Task type is required." });
     }
 
-    if (!accountType) {
-      return res.status(400).json({ error: "Account type is required." });
+    if (!currency || !["USD", "PKR"].includes(currency)) {
+      return res
+        .status(400)
+        .json({ error: "Currency must be either USD or PKR." });
     }
 
     if (
@@ -37,6 +41,12 @@ export const createTaskController = async (req, res) => {
       return res
         .status(400)
         .json({ error: "Offer day is required for Sunday offers." });
+    }
+
+    if (taskType === "monthlyOffer" && !monthlyDay) {
+      return res
+        .status(400)
+        .json({ error: "Monthly day is required for month offers." });
     }
 
     if (taskType === "link" && !Links) {
@@ -58,14 +68,15 @@ export const createTaskController = async (req, res) => {
     // Create new task
     const newTask = new TaskModel({
       taskType,
-      accountType,
       referralRequirement:
         taskType === "referral" ? referralRequirement : undefined,
       offerDay: taskType === "sundayOffer" ? offerDay : undefined,
+      monthlyDay: taskType === "monthlyOffer" ? monthlyDay : undefined,
       Links: taskType === "link" ? Links : undefined,
       price,
       reward,
-      followLink, // Optional field
+      followLink,
+      currency, // Currency included in new task creation
     });
 
     // Save task to the database
@@ -83,13 +94,36 @@ export const createTaskController = async (req, res) => {
 };
 
 //get
+// Get all tasks
 export const getTaskController = async (req, res) => {
   try {
     const tasks = await TaskModel.find();
-    return res.status(200).json({ tasks });
+    if (!tasks.length) {
+      return res.status(404).json({ error: "No tasks found." });
+    }
+
+    // Map tasks to include currency in the response
+    const tasksWithCurrency = tasks.map((task) => ({
+      id: task._id,
+      taskType: task.taskType,
+      referralRequirement: task.referralRequirement,
+      offerDay: task.offerDay,
+      monthlyDay: task.monthlyDay,
+      Links: task.Links,
+      price: task.price,
+      reward: task.reward,
+      followLink: task.followLink,
+      currency: task.currency, // Include currency in the response
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+    }));
+
+    return res.status(200).json({ success: true, tasks: tasksWithCurrency });
   } catch (error) {
     console.error("Error fetching tasks:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    return res
+      .status(500)
+      .json({ error: "Internal server error while fetching tasks" });
   }
 };
 
