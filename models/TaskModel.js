@@ -5,7 +5,7 @@ const taskSchema = new mongoose.Schema(
     taskType: {
       type: String,
       required: true,
-      enum: ["referral", "sundayOffer", "link"], // Add 'link' to task types
+      enum: ["referral", "sundayOffer", "link", "monthlyOffer"], // Add 'link' to task types
     },
     referralRequirement: {
       type: Number,
@@ -24,7 +24,14 @@ const taskSchema = new mongoose.Schema(
       required: function () {
         return this.taskType === "sundayOffer";
       },
-      enum: ["Sunday"], // Only allow Sunday for now
+      enum: ["Sunday"],
+    },
+    monthlyDay: {
+      type: String,
+      required: function () {
+        return this.taskType === "monthlyOffer";
+      },
+      enum: ["month"],
     },
     price: {
       type: Number,
@@ -33,6 +40,11 @@ const taskSchema = new mongoose.Schema(
     claimable: {
       type: Boolean,
       default: false, // Initially, tasks aren't claimable
+    },
+    currency: {
+      type: String,
+      required: true,
+      enum: ["USD", "PKR"], // Allowed currencies
     },
     reward: {
       type: String,
