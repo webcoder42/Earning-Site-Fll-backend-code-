@@ -218,3 +218,65 @@ export const getUserTotalAdsViewed = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+export const adminGetAds = async (req, res) => {
+  try {
+    // Accept email as a query parameter
+    const { email } = req.query;
+
+    // If email is provided, find user by email
+    let user;
+    if (email) {
+      user = await UserModel.findOne({ email });
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+    } else {
+      // If no email is provided, use userId from params
+      const { userId } = req.params;
+      user = await UserModel.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+    }
+
+    // Fetch ad interactions for the specific user
+    const adInteractions = await UserAdsModel.find({ userId: user._id });
+
+    if (adInteractions.length === 0) {
+      return res.status(404).json({
+        message: "No ad interactions found for this user.",
+        totalAdsWatched: 0,
+        totalEarnings: 0,
+      });
+    }
+
+    // Calculate total ads watched and total earnings from those ads
+    const totalAdsWatched = adInteractions.length;
+    const totalEarnings = adInteractions.reduce(
+      (sum, interaction) => sum + interaction.earnedAmount,
+      0
+    );
+
+    // Send detailed response back to admin
+    res.status(200).json({
+      success: true,
+      message: "User ad interactions retrieved successfully",
+      user: {
+        username: user.username,
+        email: user.email,
+      },
+      totalAdsWatched,
+      totalEarnings,
+      adDetails: adInteractions.map((interaction) => ({
+        adId: interaction.adId,
+        viewedSeconds: interaction.viewedSeconds,
+        earnedAmount: interaction.earnedAmount,
+        viewedDate: interaction.viewedDate,
+      })),
+    });
+  } catch (error) {
+    console.error("Error in adminGetAds:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
