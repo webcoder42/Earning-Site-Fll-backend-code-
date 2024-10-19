@@ -571,6 +571,10 @@ export const getAllReferralsDetails = async (req, res) => {
       referredBy: user.referralCode,
     });
 
+    if (!referredUsers.length) {
+      return res.status(200).json({ referralDetails: [] });
+    }
+
     // Prepare an array to store referral details
     let referralDetails = [];
 
@@ -587,8 +591,13 @@ export const getAllReferralsDetails = async (req, res) => {
       referralDetails.push({
         username: referredUser.username,
         email: referredUser.email,
-        packageName: packagePurchase ? packagePurchase.packagesId.name : null,
-        packageStatus: packagePurchase ? packagePurchase.packageStatus : null,
+        packageName:
+          packagePurchase && packagePurchase.packagesId
+            ? packagePurchase.packagesId.name
+            : "No Package",
+        packageStatus: packagePurchase
+          ? packagePurchase.packageStatus
+          : "No Status",
         createdAt: referredUser.createdAt,
       });
     }
