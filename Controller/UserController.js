@@ -417,7 +417,11 @@ export const getUserEarnings = async (req, res) => {
 export const getTotalReferrals = async (req, res) => {
   try {
     // Get the user ID from the authenticated request
-    const userId = req.user._id; // Assuming you store user ID in req.user from authentication middleware
+    const userId = req.user?._id; // Ensure req.user exists
+
+    if (!userId) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
 
     // Find the user based on user ID
     const user = await UserModel.findById(userId);
@@ -431,22 +435,42 @@ export const getTotalReferrals = async (req, res) => {
       referredBy: user.referralCode,
     });
 
+    if (!referredUsers.length) {
+      return res.status(200).json({ totalReferrals: 0, referralDetails: [] });
+    }
+
     // Prepare an array to store referral details
     let referralDetails = [];
 
-    // Loop through referred users to fetch their details
-    for (const referredUser of referredUsers) {
-      // Find package purchase details for each referred user
-      const packagePurchase = await PackagePurchaseModel.findOne({
-        userId: referredUser._id,
-      }).populate("packagesId", "name packageStatus"); // Populate 'packagesId' with 'name' and 'packageStatus'
+    // Fetch package details for all referred users in a single query to improve performance
+    const referredUserIds = referredUsers.map((user) => user._id);
 
-      // Add relevant details to referralDetails
+    // Fetch all package purchases for referred users
+    const packagePurchases = await PackagePurchaseModel.find({
+      userId: { $in: referredUserIds },
+    }).populate("packagesId", "name packageStatus");
+
+    // Create a map of package purchases based on userId
+    const packageMap = packagePurchases.reduce((map, purchase) => {
+      map[purchase.userId] = purchase;
+      return map;
+    }, {});
+
+    // Loop through referred users and prepare details
+    for (const referredUser of referredUsers) {
+      const packagePurchase = packageMap[referredUser._id] || null;
+
+      // Add safe null checks here before accessing packagePurchase fields
       referralDetails.push({
         username: referredUser.username,
         email: referredUser.email,
-        packageName: packagePurchase ? packagePurchase.packagesId.name : null,
-        packageStatus: packagePurchase ? packagePurchase.packageStatus : null,
+        packageName:
+          packagePurchase && packagePurchase.packagesId
+            ? packagePurchase.packagesId.name
+            : "No Package",
+        packageStatus: packagePurchase
+          ? packagePurchase.packageStatus
+          : "No Status",
       });
     }
 
