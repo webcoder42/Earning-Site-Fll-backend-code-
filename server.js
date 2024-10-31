@@ -19,6 +19,7 @@ import Commision from "./Routes/CommissionRoute.js";
 import Image from "./Routes/SliderImgRoute.js";
 import Task from "./Routes/TaskRoute.js";
 import UserTask from "./Routes/UserTaskRoute.js";
+import AutoEarnStart from "./Routes/AutoEarnStartRoute.js";
 
 import "./Helper/cronJobs.js";
 
@@ -50,6 +51,7 @@ app.use("/api/v1/subscribe", Subscribe);
 app.use("/api/v1/img", Image);
 app.use("/api/v1/task", Task);
 app.use("/api/v1/usertask", UserTask);
+app.use("/api/v1/autoearnstart", AutoEarnStart);
 
 app.get("/", (req, res) => {
   res.send("Welcome to web");
