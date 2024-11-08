@@ -7,6 +7,7 @@ import PackagesModel from "../models/PackagesModel.js";
 import UserModel from "../models/UserModel.js";
 
 // Create user ad interaction
+// Create user ad interaction
 export const createUserAdsController = async (req, res) => {
   try {
     const { adId, viewedSeconds } = req.body;
@@ -58,11 +59,10 @@ export const createUserAdsController = async (req, res) => {
 
     // Calculate earnings or deductions based on daily limit
     let earnedAmount = earningRate;
-    let extraViews = adsViewedToday - dailyAdLimit;
 
-    if (extraViews >= 0) {
-      // If the user has viewed more ads than the limit, calculate deductions
-      earnedAmount = -earningRate * (extraViews + 1);
+    if (adsViewedToday >= dailyAdLimit) {
+      // Only deduct earningRate amount once for extra views
+      earnedAmount = -earningRate;
     }
 
     // Create a new UserAds document
@@ -85,7 +85,7 @@ export const createUserAdsController = async (req, res) => {
 
     res.status(200).json({
       message:
-        extraViews >= 0
+        adsViewedToday >= dailyAdLimit
           ? "Ad viewed, but earnings deducted due to exceeding daily limit."
           : "Ad viewed and earnings updated successfully.",
       userAd,
