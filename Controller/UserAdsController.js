@@ -10,7 +10,7 @@ import UserModel from "../models/UserModel.js";
 export const createUserAdsController = async (req, res) => {
   try {
     const { adId, viewedSeconds } = req.body;
-    const userId = req.user._id; // userId directly from req.user
+    const userId = req.user._id;
 
     // Check if user has an active package purchase
     const activePurchase = await PackagePurchaseModel.findOne({
@@ -23,7 +23,7 @@ export const createUserAdsController = async (req, res) => {
         .json({ message: "No active package found for the user." });
     }
 
-    // Get the package details
+    // Get the package details and daily ad limit
     const packageDetails = await PackagesModel.findById(
       activePurchase.packagesId
     );
@@ -31,13 +31,24 @@ export const createUserAdsController = async (req, res) => {
       return res.status(400).json({ message: "Package details not found." });
     }
 
-    // Get the advertisement details
+    const dailyAdLimit = packageDetails.numOfAds || 20; // Default daily limit if not defined
+    const earningRate = packageDetails.earningRate;
+
+    // Get today's date to filter ads viewed today
+    const startOfDay = moment().startOf("day").toDate();
+
+    // Count ads watched today by the user
+    const adsViewedToday = await UserAdsModel.countDocuments({
+      userId,
+      viewedDate: { $gte: startOfDay },
+    });
+
+    // Check if user has viewed the ad for the required duration
     const adDetails = await AdvertisementModel.findById(adId);
     if (!adDetails) {
       return res.status(400).json({ message: "Advertisement not found." });
     }
 
-    // Check if user has viewed the ad for the required duration
     const requiredDuration = adDetails.duration;
     if (viewedSeconds < requiredDuration) {
       return res.status(400).json({
@@ -45,22 +56,14 @@ export const createUserAdsController = async (req, res) => {
       });
     }
 
-    // Check if the user has already viewed this ad within the last 24 hours
-    /* const alreadyViewed = await UserAdsModel.findOne({
-      userId,
-      adId,
-      viewedDate: {
-        $gte: moment().subtract(24, "hours").toDate(),
-      },
-    });
-    if (alreadyViewed) {
-      return res.status(400).json({
-        message: "You have already watched this ad within the last 24 hours.",
-      });
-    }*/
+    // Calculate earnings or deductions based on daily limit
+    let earnedAmount = earningRate;
+    let extraViews = adsViewedToday - dailyAdLimit;
 
-    // Calculate the earnings
-    const earnedAmount = packageDetails.earningRate;
+    if (extraViews >= 0) {
+      // If the user has viewed more ads than the limit, calculate deductions
+      earnedAmount = -earningRate * (extraViews + 1);
+    }
 
     // Create a new UserAds document
     const userAd = new UserAdsModel({
@@ -81,12 +84,61 @@ export const createUserAdsController = async (req, res) => {
     });
 
     res.status(200).json({
-      message: "Ad viewed and earnings updated successfully.",
+      message:
+        extraViews >= 0
+          ? "Ad viewed, but earnings deducted due to exceeding daily limit."
+          : "Ad viewed and earnings updated successfully.",
       userAd,
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error." });
+  }
+};
+
+// Other controller functions remain the same
+
+// Get user total ads viewed today
+export const getUserTotalAdsViewed = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Calculate the total number of ads viewed by the user
+    const totalAdsViewed = await UserAdsModel.countDocuments({ userId });
+
+    // Get the user's active package purchase
+    const activePurchase = await PackagePurchaseModel.findOne({
+      userId,
+      packageStatus: "Active",
+    }).populate("packagesId");
+
+    if (!activePurchase) {
+      return res.status(400).json({
+        message:
+          "No active package found. Please purchase a package to view ads.",
+      });
+    }
+
+    const packageDetails = activePurchase.packagesId;
+    const dailyAdLimit = packageDetails.numOfAds || 20; // Default to 20 if not defined
+
+    // Calculate the number of ads viewed in the past 24 hours
+    const startOfDay = moment().startOf("day").toDate();
+    const adsViewedToday = await UserAdsModel.countDocuments({
+      userId,
+      viewedDate: { $gte: startOfDay },
+    });
+
+    const remainingAdsToday = Math.max(dailyAdLimit - adsViewedToday, 0);
+
+    res.status(200).json({
+      totalAdsViewed,
+      adsViewedToday,
+      remainingAdsToday,
+    });
+  } catch (error) {
+    console.error("Error in getUserTotalAdsViewed:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -176,7 +228,7 @@ export const getUserEarningsFromAds = async (req, res) => {
 
 // Get user total ads viewed today
 // Get total ads viewed by the user
-export const getUserTotalAdsViewed = async (req, res) => {
+/*export const getUserTotalAdsViewed = async (req, res) => {
   try {
     const userId = req.user._id;
 
@@ -217,7 +269,7 @@ export const getUserTotalAdsViewed = async (req, res) => {
     console.error("Error in getUserTotalAdsViewed:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
-};
+};*/
 
 export const adminGetAds = async (req, res) => {
   try {
