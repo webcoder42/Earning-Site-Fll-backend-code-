@@ -1,4 +1,5 @@
 import UserModel from "../models/UserModel.js";
+import VerificationModel from "../models/VerificationModel.js";
 import WithdrawalAccountModel from "../models/WithdrawalAccountModel.js";
 import WithdrawalModel from "../models/WithdrawalModel.js";
 
@@ -21,7 +22,19 @@ export const createWithdrawalRequestController = async (req, res) => {
       return res.status(400).send({ error: "Account Name is required" });
     }
 
-    const user = await UserModel.findById(req.user._id); // Fetch user details
+    // Fetch user details
+    const user = await UserModel.findById(req.user._id);
+
+    // Check if the user has completed verification
+    const userVerification = await VerificationModel.findOne({
+      userId: req.user._id,
+    });
+
+    if (!userVerification || userVerification.verification !== "verify") {
+      return res.status(400).send({
+        error: "Please complete your verification before making a withdrawal",
+      });
+    }
 
     // Check if user's earnings are sufficient
     if (amount > user.earnings) {
@@ -48,6 +61,7 @@ export const createWithdrawalRequestController = async (req, res) => {
     user.earnings -= amount;
     await user.save();
 
+    // Create a new withdrawal request
     const newWithdrawal = new WithdrawalModel({
       userId: req.user._id,
       amount,
@@ -131,7 +145,7 @@ export const getSingleWithdrawalController = async (req, res) => {
   }
 };
 
-// Update withdrawal status
+// Update withdrawal statusa
 export const updateWithdrawalStatusController = async (req, res) => {
   try {
     const { withdrawalId } = req.params;
