@@ -26,7 +26,7 @@ export const createWithdrawalRequestController = async (req, res) => {
     const user = await UserModel.findById(req.user._id);
 
     // Check if the user has completed verification
-    const userVerification = await VerificationModel.findOne({
+    /*const userVerification = await VerificationModel.findOne({
       userId: req.user._id,
     });
 
@@ -34,7 +34,7 @@ export const createWithdrawalRequestController = async (req, res) => {
       return res.status(400).send({
         error: "Please complete your verification before making a withdrawal",
       });
-    }
+    }*/
 
     // Check if user's earnings are sufficient
     if (amount > user.earnings) {
