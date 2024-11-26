@@ -21,6 +21,8 @@ import Task from "./Routes/TaskRoute.js";
 import UserTask from "./Routes/UserTaskRoute.js";
 import AutoEarnStart from "./Routes/AutoEarnStartRoute.js";
 import Verify from "./Routes/VerificationRoute.js";
+import Level from "./Routes/LevelCreateRoute.js";
+import UserLevel from "./Routes/UserLevelRoute.js";
 
 import "./Helper/cronJobs.js";
 
@@ -54,6 +56,8 @@ app.use("/api/v1/task", Task);
 app.use("/api/v1/usertask", UserTask);
 app.use("/api/v1/autoearnstart", AutoEarnStart);
 app.use("/api/v1/verify", Verify);
+app.use("/api/v1/level", Level);
+app.use("/api/v1/userlevel", UserLevel);
 
 app.get("/", (req, res) => {
   res.send("Welcome to web");
