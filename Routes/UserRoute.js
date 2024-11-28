@@ -15,6 +15,7 @@ import {
   getRefferalCodeController,
   getRefferallinkCodeController,
   getAllReferralsDetails,
+  adminDeleteUserController,
 } from "../Controller/UserController.js";
 import { isAdmin, requireSignIn } from "../middleware/UserMiddleware.js";
 
@@ -83,6 +84,14 @@ router.get(
   requireSignIn,
   isAdmin,
   getAllReferralsDetails
+);
+
+//admin dlt
+router.delete(
+  "/delete-user/:userId",
+  requireSignIn, // Middleware to verify token
+  isAdmin, // Middleware to check admin privileges
+  adminDeleteUserController
 );
 
 export default router;
