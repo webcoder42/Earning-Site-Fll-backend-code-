@@ -9,7 +9,7 @@ const UserLevelSchema = new mongoose.Schema(
     },
     levelId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "LevelCreation",
+      ref: "levelcreation",
       required: true,
     },
     status: {
