@@ -608,3 +608,35 @@ export const getAllReferralsDetails = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+//admin delete
+// Admin Controller to Delete a User
+export const adminDeleteUserController = async (req, res) => {
+  try {
+    const { userId } = req.params; // Extract userId from route parameters
+
+    // Check if the user exists
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).send({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Delete the user
+    await UserModel.findByIdAndDelete(userId);
+
+    res.status(200).send({
+      success: true,
+      message: `User with ID ${userId} has been successfully deleted`,
+    });
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    res.status(500).send({
+      success: false,
+      message: "Error deleting user",
+      error,
+    });
+  }
+};
