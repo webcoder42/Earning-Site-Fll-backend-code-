@@ -44,22 +44,39 @@ export const unlockLevel = async (req, res) => {
     const userId = req.user._id;
     const { levelId } = req.body;
 
+    // Fetch the user, level, and verification status
     const user = await UserModel.findById(userId);
     const level = await LevelCreateModel.findById(levelId);
 
+    // Check if user and level exist
     if (!user || !level) {
       return res.status(404).json({ message: "User or level not found." });
     }
 
-    const existingLevel = await UserLevelModel.findOne({ userId, levelId });
+    // Check if the user is verified
+    const userVerification = await VerificationModel.findOne({ userId });
+    if (!userVerification || userVerification.verification !== "verify") {
+      return res.status(400).json({
+        message: "User is not verified. Please verify your account first.",
+      });
+    }
 
+    // Check if the user's total earnings are enough to unlock the level
+    if (user.TotalEarnings < level.MinAmount) {
+      return res.status(400).json({
+        message: `You need at least ${level.MinAmount} in total earnings to unlock this level.`,
+      });
+    }
+
+    // Check if the user has already unlocked the level
+    const existingLevel = await UserLevelModel.findOne({ userId, levelId });
     if (existingLevel) {
       return res
         .status(400)
         .json({ message: "You have already unlocked this level." });
     }
 
-    // Proceed with normal unlock logic...
+    // Proceed with normal unlock logic
     const newUserLevel = new UserLevelModel({
       userId: userId,
       levelId: levelId,
@@ -69,15 +86,18 @@ export const unlockLevel = async (req, res) => {
     });
     await newUserLevel.save();
 
+    // Update the user's earnings
     user.TotalEarnings += level.upgradeCommision;
     user.earnings += level.upgradeCommision;
     await user.save();
 
+    // Return response
     res.status(200).json({
       message: "Level unlocked successfully.",
       levelDetails: newUserLevel,
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Server error. Please try again later." });
   }
 };
