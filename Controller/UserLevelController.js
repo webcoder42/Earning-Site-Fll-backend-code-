@@ -1,4 +1,5 @@
 import LevelCreateModel from "../models/LevelCreateModel.js";
+import SalaryClaimModel from "../models/SalaryClaimModel.js";
 import UserLevelModel from "../models/UserLevelModel.js";
 import UserModel from "../models/UserModel.js";
 import VerificationModel from "../models/VerificationModel.js";
@@ -122,8 +123,45 @@ export const getCurrentUserLevel = async (req, res) => {
   }
 };
 
-// 1. Controller to get current level and check monthly salary for the user
-/*export const getSalaryForCurrentLevel = async (req, res) => {
+export const getUserLevelByEmail = async (req, res) => {
+  try {
+    const { email } = req.params; // Get email from route params
+
+    // Fetch the user by email
+    const user = await UserModel.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Fetch the user's level from the UserLevelModel
+    const userLevel = await UserLevelModel.findOne({ userId: user._id })
+      .populate("levelId") // Populate the levelId to get full level details
+      .sort({ upgradeDate: -1 }); // Ensure we get the most recent level if there are multiple
+
+    if (!userLevel) {
+      return res.status(404).json({ message: "No level found for this user" });
+    }
+
+    // Fetch the level details
+    const levelDetails = userLevel.levelId;
+
+    // Return response
+    res.status(200).json({
+      message: "User's level details retrieved successfully",
+      user: {
+        name: user.name,
+        email: user.email,
+        levelId: userLevel.levelId,
+      },
+    });
+  } catch (error) {
+    console.error("Error retrieving user level:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getSalaryForCurrentLevel = async (req, res) => {
   try {
     const userId = req.user._id; // Logged-in user
     const user = await UserModel.findById(userId);
@@ -132,134 +170,179 @@ export const getCurrentUserLevel = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Get user's current level
-    const userLevel = await UserLevelModel.findOne({ userId }).populate(
-      "levelId"
-    );
+    // Fetch the latest user level based on the most recent activation or creation date
+    const userLevel = await UserLevelModel.findOne({ userId })
+      .populate("levelId")
+      .sort({ createdAt: -1 }); // Sort by creation date in descending order
 
     if (!userLevel) {
       return res
         .status(404)
-        .json({ message: "No active level found for user." });
+        .json({ message: "No active or unlocked levels found for user." });
     }
 
-    // Get monthly salary field from the level
     const currentLevel = userLevel.levelId;
+
+    // Check eligibility based on the current level
     if (currentLevel && currentLevel.MonthlySalary === 0) {
-      return res.status(200).json({ message: "Salary Not Available" });
+      return res.status(200).json({ message: "Not Eligible for salary" });
     }
 
-    // If salary > 0, return salary details
-    res.status(200).json({
-      message: "Salary details retrieved successfully.",
-      monthlySalary:
-        currentLevel.MonthlySalary > 0
-          ? currentLevel.MonthlySalary
-          : "Inactive",
-    });
+    if (currentLevel.MonthlySalary > 0) {
+      return res.status(200).json({
+        message: "Eligible for salary",
+        monthlySalary: currentLevel.MonthlySalary,
+        salarydays: currentLevel.salarydays,
+        MinActiveRef: currentLevel.MinActiveRef,
+      });
+    }
+
+    return res.status(200).json({ message: "Salary details not available" });
   } catch (error) {
     console.error("Error fetching salary details:", error);
     res.status(500).json({ message: "Internal server error" });
   }
-};/*
+};
 
-// 2. Controller to check salary increment on level unlock
-/*export const checkSalaryOnLevelUnlock = async (req, res) => {
+// Controller for claiming salary
+
+// Function to check and claim salary
+export const checkAndClaimSalary = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const { levelId } = req.body;
+    const userId = req.user._id; // Logged-in user ID
 
-    // Debugging: Log userId and levelId to ensure they are being passed correctly
-    console.log("User ID: ", userId);
-    console.log("Level ID: ", levelId);
-
-    // Fetch the user and level
+    // Fetch user details
     const user = await UserModel.findById(userId);
-    const level = await LevelCreateModel.findById(levelId);
-
-    // Check if user and level exist
     if (!user) {
-      return res.status(404).json({ message: "User not found." });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    if (!level) {
-      return res.status(404).json({ message: "Level not found." });
+    // Fetch user's latest unlocked level
+    const userLevel = await UserLevelModel.findOne({ userId })
+      .populate("levelId") // Populate full level details
+      .sort({ upgradeDate: -1 }); // Fetch the most recently upgraded level
+
+    if (!userLevel) {
+      return res.status(404).json({ message: "No unlocked levels found." });
     }
 
-    // Check if the level is already unlocked
-    if (user.currentLevelId && user.currentLevelId.toString() === levelId) {
-      return res.status(400).json({ message: "Level already unlocked." });
+    const currentLevel = userLevel.levelId;
+
+    // Check if the current level has a salary associated
+    if (!currentLevel || currentLevel.MonthlySalary === 0) {
+      return res.status(400).json({ message: "Not eligible for salary." });
     }
 
-    // Update user's level to the newly unlocked level
-    user.currentLevelId = levelId;
+    // Check user's last salary claim
+    const lastClaim = await SalaryClaimModel.findOne({
+      userId,
+      levelId: currentLevel._id,
+    }).sort({ claimEndTime: -1 }); // Get the latest salary claim for this level
 
-    // Update salary and timer based on the newly unlocked level
-    user.salaryAmount = level.MonthlySalary; // Update the salary amount
-    const salaryDays = level.salarydays || 10; // Default salary days to 10 if not specified
-    user.salaryTimer = new Date(); // Reset the salary timer to start now
+    const salaryDays = currentLevel.salarydays || 30; // Default to 30 days
 
-    // Save user changes
+    if (lastClaim) {
+      const lastClaimDate = new Date(lastClaim.claimEndTime);
+      const currentDate = new Date();
+
+      // Check if salary claim window is still active
+      const diffInDays = (currentDate - lastClaimDate) / (1000 * 60 * 60 * 24);
+
+      if (diffInDays < salaryDays) {
+        return res.status(400).json({
+          message: `You can claim your salary again in ${Math.ceil(
+            salaryDays - diffInDays
+          )} days.`,
+        });
+      }
+    }
+
+    // Proceed to claim salary
+    const salaryAmount = currentLevel.MonthlySalary;
+
+    const newSalaryClaim = new SalaryClaimModel({
+      userId,
+      levelId: currentLevel._id,
+      claimAmount: salaryAmount,
+      claimStartTime: new Date(),
+      claimEndTime: new Date(
+        new Date().getTime() + salaryDays * 24 * 60 * 60 * 1000
+      ), // Set next claim window
+    });
+
+    await newSalaryClaim.save();
+
+    // Update user's earnings
+    user.TotalEarnings += salaryAmount;
+    user.earnings += salaryAmount;
     await user.save();
 
     return res.status(200).json({
-      message: `Level unlocked successfully. Salary timer reset to ${salaryDays} days.`,
-      salaryAmount: user.salaryAmount,
-      salaryDays,
-    });
-  } catch (err) {
-    console.error("Error unlocking level or checking salary:", err);
-    res.status(500).json({ message: "Server error. Please try again later." });
-  }
-};*/
-
-/*export const claimSalary = async (req, res) => {
-  try {
-    const userId = req.user._id;
-
-    // Fetch the user
-    const user = await UserModel.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found." });
-    }
-
-    // Check if salary timer has been set
-    if (!user.salaryTimer) {
-      return res.status(400).json({ message: "Salary timer not started yet." });
-    }
-
-    // Calculate the timer completion
-    const timerEndDate = new Date(user.salaryTimer);
-    const currentLevel = await LevelCreateModel.findById(user.currentLevelId);
-    const salaryDays = currentLevel.salarydays || 10; // Default 10 days
-    timerEndDate.setDate(timerEndDate.getDate() + salaryDays);
-
-    if (new Date() < timerEndDate) {
-      const remainingTime = Math.ceil(
-        (timerEndDate - new Date()) / (1000 * 60 * 60 * 24)
-      );
-      return res.status(400).json({
-        message: `Salary timer is still active. Please wait ${remainingTime} days.`,
-        remainingTime,
-      });
-    }
-
-    // Add salary to earnings and reset timer
-    user.earnings += user.salaryAmount;
-    user.TotalEarnings += user.salaryAmount;
-    user.salaryTimer = new Date(); // Reset the timer for the next cycle
-
-    await user.save();
-
-    res.status(200).json({
       message: "Salary claimed successfully.",
-      salaryAmount: user.salaryAmount,
-      totalEarnings: user.TotalEarnings,
+      newEarnings: user.earnings,
     });
-  } catch (err) {
-    console.error("Error claiming salary:", err);
-    res.status(500).json({ message: "Server error. Please try again later." });
+  } catch (error) {
+    console.error("Error claiming salary:", error);
+    res.status(500).json({ message: "Internal server error." });
   }
 };
-*/
+
+export const getSalaryClaimHistory = async (req, res) => {
+  try {
+    const userId = req.user._id; // Logged-in user
+
+    // Fetch salary claims for the user
+    const claims = await SalaryClaimModel.find({ userId }).sort({
+      claimStartTime: -1,
+    });
+
+    if (!claims || claims.length === 0) {
+      return res.status(404).json({ message: "No salary claims found." });
+    }
+
+    // Return claim history
+    res.status(200).json({
+      message: "Salary claim history retrieved successfully.",
+      claims,
+    });
+  } catch (error) {
+    console.error("Error fetching salary claim history:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+export const getUserSalaryDetails = async (req, res) => {
+  try {
+    const userId = req.user._id; // Assume logged-in user's ID is set by auth middleware
+
+    // Step 1: Fetch the user
+    const user = await UserModel.findById(userId).select("email TotalEarnings");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Step 2: Fetch salary claims
+    const salaryClaims = await SalaryClaimModel.find({ userId })
+      .sort({ claimStartTime: -1 }) // Latest claims first
+      .select("claimAmount claimStartTime claimEndTime");
+
+    if (!salaryClaims || salaryClaims.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No salary claims found for this user." });
+    }
+
+    // Step 3: Structure and return the response
+    res.status(200).json({
+      message: "User salary details retrieved successfully.",
+      user: {
+        email: user.email,
+        totalEarnings: user.TotalEarnings,
+      },
+      salaryClaims,
+    });
+  } catch (error) {
+    console.error("Error fetching user salary details:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
