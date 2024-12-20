@@ -1,13 +1,15 @@
 import express from "express";
 import {
-  //checkSalaryOnLevelUnlock,
-  //claimSalary,
   getCurrentUserLevel,
   getLevelsByCurrency,
-  //getSalaryForCurrentLevel,
+  getUserLevelByEmail,
   unlockLevel,
+  checkAndClaimSalary,
+  getSalaryForCurrentLevel,
+  getSalaryClaimHistory,
+  getUserSalaryDetails,
 } from "../Controller/UserLevelController.js";
-import { requireSignIn } from "./../middleware/UserMiddleware.js";
+import { isAdmin, requireSignIn } from "./../middleware/UserMiddleware.js";
 
 const router = express.Router();
 
@@ -20,13 +22,15 @@ router.get("/get-level", requireSignIn, getLevelsByCurrency);
 //get single
 router.get("/user-level", requireSignIn, getCurrentUserLevel);
 
+// Route to get user level by email (admin route)
+router.get("/admin-level/:email", requireSignIn, isAdmin, getUserLevelByEmail);
+
 // Route to get salary for current level of user
-//router.get("/salary", requireSignIn, getSalaryForCurrentLevel);
+router.post("/claim-salary", requireSignIn, checkAndClaimSalary);
 
-// Route to check and increment salary on level unlock
-//router.post("/salary-level-unlock", requireSignIn, checkSalaryOnLevelUnlock);
+router.get("/getsalary", requireSignIn, getSalaryForCurrentLevel);
+router.get("/salarystatus", requireSignIn, getSalaryClaimHistory);
 
-// Route for salary claim
-//router.post("/salary/claim", requireSignIn, claimSalary);
+router.get("/user/salary-details", requireSignIn, getUserSalaryDetails);
 
 export default router;
