@@ -57,7 +57,7 @@ app.use("/api/v1/usertask", UserTask);
 app.use("/api/v1/autoearnstart", AutoEarnStart);
 app.use("/api/v1/verify", Verify);
 app.use("/api/v1/level", Level);
-app.use("/api/v1/userlevel", UserLevel);
+app.use("/api/v1/leveluser", UserLevel);
 
 app.get("/", (req, res) => {
   res.send("Welcome to web");
