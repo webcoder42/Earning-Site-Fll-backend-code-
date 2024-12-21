@@ -233,7 +233,7 @@ export const checkAndClaimSalary = async (req, res) => {
       return res.status(400).json({ message: "Not eligible for salary." });
     }
 
-    // Check user's last salary claim
+    // Fetch user's last salary claim for this level
     const lastClaim = await SalaryClaimModel.findOne({
       userId,
       levelId: currentLevel._id,
@@ -242,17 +242,17 @@ export const checkAndClaimSalary = async (req, res) => {
     const salaryDays = currentLevel.salarydays || 30; // Default to 30 days
 
     if (lastClaim) {
-      const lastClaimDate = new Date(lastClaim.claimEndTime);
       const currentDate = new Date();
+      const lastClaimEndTime = new Date(lastClaim.claimEndTime);
 
       // Check if salary claim window is still active
-      const diffInDays = (currentDate - lastClaimDate) / (1000 * 60 * 60 * 24);
+      if (currentDate < lastClaimEndTime) {
+        const remainingDays = Math.ceil(
+          (lastClaimEndTime - currentDate) / (1000 * 60 * 60 * 24)
+        );
 
-      if (diffInDays < salaryDays) {
         return res.status(400).json({
-          message: `You can claim your salary again in ${Math.ceil(
-            salaryDays - diffInDays
-          )} days.`,
+          message: `You can claim your salary again in ${remainingDays} days.`,
         });
       }
     }
@@ -267,7 +267,7 @@ export const checkAndClaimSalary = async (req, res) => {
       claimStartTime: new Date(),
       claimEndTime: new Date(
         new Date().getTime() + salaryDays * 24 * 60 * 60 * 1000
-      ), // Set next claim window
+      ), // Calculate claim window
     });
 
     await newSalaryClaim.save();
@@ -279,6 +279,8 @@ export const checkAndClaimSalary = async (req, res) => {
 
     return res.status(200).json({
       message: "Salary claimed successfully.",
+      claimAmount: salaryAmount,
+      nextClaimAvailableOn: newSalaryClaim.claimEndTime,
       newEarnings: user.earnings,
     });
   } catch (error) {
