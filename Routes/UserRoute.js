@@ -16,6 +16,7 @@ import {
   getRefferallinkCodeController,
   getAllReferralsDetails,
   adminDeleteUserController,
+  toggleUserStatus,
 } from "../Controller/UserController.js";
 import { isAdmin, requireSignIn } from "../middleware/UserMiddleware.js";
 
@@ -93,5 +94,7 @@ router.delete(
   isAdmin, // Middleware to check admin privileges
   adminDeleteUserController
 );
+
+router.post("/toggle-user-status", requireSignIn, isAdmin, toggleUserStatus);
 
 export default router;
