@@ -485,8 +485,6 @@ export const getTotalReferrals = async (req, res) => {
 };
 
 // UserController.js
-// UserController.js
-// controllers/userController.js
 
 export const getEarningSlug = async (req, res) => {
   try {
@@ -638,5 +636,54 @@ export const adminDeleteUserController = async (req, res) => {
       message: "Error deleting user",
       error,
     });
+  }
+};
+
+//banned user
+// Assuming the User model path
+
+// Admin function to band or unband a user
+export const toggleUserStatus = async (req, res) => {
+  const { userId, action } = req.body; // userId and action (band/unband)
+
+  try {
+    const user = await UserModel.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (action === "band") {
+      // Banding the user
+      const updatedEmail = user.email + "*band";
+      const updatedPassword = user.password + "*band";
+
+      user.email = updatedEmail;
+      user.password = updatedPassword;
+      user.status = "band"; // You can add a status field to manage band/unband status
+
+      await user.save();
+      return res
+        .status(200)
+        .json({ message: "User has been banded successfully" });
+    } else if (action === "unband") {
+      // Unbanding the user
+      const originalEmail = user.email.replace("*band", ""); // Remove '*band' from email
+      const originalPassword = user.password.replace("*band", ""); // Remove '*band' from password
+
+      user.email = originalEmail;
+      user.password = originalPassword;
+      user.status = "active"; // You can set status to active when unbanded
+
+      await user.save();
+      return res
+        .status(200)
+        .json({ message: "User has been unbanded successfully" });
+    } else {
+      return res.status(400).json({ message: "Invalid action" });
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
   }
 };
