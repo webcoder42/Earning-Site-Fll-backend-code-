@@ -24,6 +24,8 @@ import Verify from "./Routes/VerificationRoute.js";
 import Level from "./Routes/LevelCreateRoute.js";
 import UserLevel from "./Routes/UserLevelRoute.js";
 import FreeBonus from "./Routes/FreeBonusRoute.js";
+import UserLongEarn from "./Routes/UserLongEarnRoute.js";
+import LongEarn from "./Routes/LongEarnRoute.js";
 
 import "./Helper/cronJobs.js";
 
@@ -60,6 +62,8 @@ app.use("/api/v1/verify", Verify);
 app.use("/api/v1/level", Level);
 app.use("/api/v1/leveluser", UserLevel);
 app.use("/api/v1/bonus", FreeBonus);
+app.use("/api/v1/userlongearn", UserLongEarn);
+app.use("/api/v1/longearn", LongEarn);
 
 app.get("/", (req, res) => {
   res.send("Welcome to web");
