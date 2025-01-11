@@ -198,7 +198,7 @@ const sendResetEmail = async (email, token) => {
     to: email,
     subject: "Password Reset",
     text: `To reset your password, please click the link below:
-   https://aesthetic-melba-0fd5ab.netlify.app/request-password-reset/${token}`, // Corrected the link
+   https://earn-tube.online/request-password-reset/${token}`, // Corrected the link
   };
 
   await transporter.sendMail(mailOptions);
