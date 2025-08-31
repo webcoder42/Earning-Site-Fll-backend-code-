@@ -80,8 +80,8 @@ export const getAllTitlesController = async (req, res) => {
 // Get Title by Slug Controller
 export const getTitleController = async (req, res) => {
   try {
-    const { slug } = req.params;
-    const title = await SiteTitleModel.findOne({ slug });
+    const { id } = req.params;
+    const title = await SiteTitleModel.findById(id);
     if (!title) {
       return res.status(404).json({
         success: false,
