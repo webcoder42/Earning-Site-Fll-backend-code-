@@ -25,7 +25,7 @@ router.delete(
 router.get("/get-title", getAllTitlesController);
 
 //get single title
-router.get("/title/:slug", requireSignIn, isAdmin, getTitleController);
+router.get("/title/:id", requireSignIn, isAdmin, getTitleController);
 
 //update
 router.put("/update-title/:id", requireSignIn, isAdmin, updateTitleController);
