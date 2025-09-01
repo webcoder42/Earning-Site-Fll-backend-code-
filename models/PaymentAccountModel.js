@@ -11,7 +11,7 @@ const paymentaccountSchema = new mongoose.Schema({
   },
   accountType: {
     type: String,
-    enum: ["EasyPaisa", "JazzCash"],
+
     required: true,
   },
 });
